@@ -158,7 +158,7 @@ if __name__ == "__main__":
 
     logger = SummaryWriter(log_dir="./log")
     
-    #load data  # dataloader确认，原始特征 (特征/样本数量 * 9844(特征维度)) 相当于原始图片
+    #load data  # dataloader确认，原始特征 (特征/样本数量 * (特征维度)) 
     DL,org_fea = get_feature(args.cancer_type, args.batch_size, True)   #这里的loader 是没有标签的，注意后面参数是True 的这里是用来提取特征的
 
     # initialize model
@@ -196,7 +196,7 @@ if __name__ == "__main__":
 
     pseudo_labeled_dataset = []
     for i, (feature, label) in enumerate(zip(org_fea, pseudo_labels)):
-        pseudo_labeled_dataset.append((feature, label))  # 所有的原始特征(相当于原始图片) + 所有的伪标签
+        pseudo_labeled_dataset.append((feature, label))  # 所有的原始特征 + 所有的伪标签
 
 
     train_loader = IterLoader(DataLoader(pseudo_labeled_dataset, args.batch_size))
@@ -212,7 +212,7 @@ if __name__ == "__main__":
     loss=[]
     for epoch in range(args.start_epoch, args.epochs+1):
         lr = optimizer.param_groups[0]["lr"]
-        loss_epoch = train(train_loader,model,memory)  #重点在这儿
+        loss_epoch = train(train_loader,model,memory)
         loss.append(loss_epoch)
         logger.add_scalar("train loss", loss_epoch)
         if epoch % 100 == 0:

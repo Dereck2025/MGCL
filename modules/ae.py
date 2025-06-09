@@ -35,20 +35,7 @@ class Encoder(nn.Module):
         return z
 
 
-class Decoder(nn.Module):
-    def __init__(self,input_dim=9844,inter_dims=[5000,2000,1000,256]):
-        super(Decoder,self).__init__()
 
-        self.decoder=nn.Sequential(
-            *block(inter_dims[-1],inter_dims[-2]),
-            *block(inter_dims[-2],inter_dims[-3]),
-            *block(inter_dims[-3],inter_dims[-4]) 
-        )
-
-    def forward(self, z):
-        x_out=self.decoder(z)
-
-        return x_out
 
 
 class AE(nn.Module):

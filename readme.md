@@ -20,13 +20,14 @@ Data/
 ├── SKCM
 ├── STAD 
 └── UCEC 
-<\pre>
+</pre>
        
 # Usage
 We provide the scripts for running MGCL.  
 
 ```
 python train.py
+
 
 
 

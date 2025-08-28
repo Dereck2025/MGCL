@@ -11,6 +11,7 @@ MGCL is built with Python 3.7 with the following packages:
 
 # Datasets
 Download datasets at https://pan.baidu.com/s/1yADMOcyowz9GpPhqAfbX0w?pwd=abcd.  The directory should look like
+<pre>
 Data
 ├── BLCA
 ├── BRCA
@@ -20,7 +21,7 @@ Data
 ├── SKCM
 ├── STAD
 └── UCEC
-
+</pre>
 
 # Usage
 We provide the scripts for running MGCL.  

@@ -25,7 +25,8 @@ import torch.nn.functional as F
 from sklearn import manifold
 
 
-def inference(loader, model, device):    #测试
+
+def inference(loader, model, device):    
     model.eval()
     cluster_vector = []
     feature_vector = []
@@ -66,19 +67,19 @@ def plot_embedding(X, y, title=None):
 
 
 ################################ LIU ###############################
-def extract_features(loader, model, device):  #提取特征 （数据加载，模型加载，设备加载）
+def extract_features(loader, model, device):  
     model.eval()
     feature_vector = []
-    for step, x in enumerate(loader):  # 在加载的数据集里 进行以下操作
+    for step, x in enumerate(loader): 
         x = x.float().to(device)
         with torch.no_grad():
-            h = model.forward_(x)  #用network.py中的模型的前向传播函数
+            h = model.module.forward_(x)  
         h = h.detach()
         feature_vector.extend(h.cpu().detach().numpy())
     feature_vector = np.array(feature_vector)
-    return feature_vector   #特征提取后 见network.py
+    return feature_vector  
 
-def  parse_data(inputs):  #就是后面把特征和标签分开
+def  parse_data(inputs): 
         f,l = inputs
         return f.cuda(), l.cuda()
 ################################ LIU ###############################
@@ -90,17 +91,17 @@ def train(dataloader,model,m): #call @ line 190
         optimizer.zero_grad()
         x_i = (x + torch.normal(0, 1, size=(x.shape[0], x.shape[1]))).float().to(device)  
         x_j = (x + torch.normal(0, 1, size=(x.shape[0], x.shape[1]))).float().to(device)  
-        z_i, z_j, c_i, c_j = model(x_i, x_j)    #生成数据增强的四组特征
+        z_i, z_j, c_i, c_j = model(x_i, x_j)    
         batch = x_i.shape[0]
         criterion_instance = contrastive_loss.DCL(temperature=0.5, weight_fn=None)
         criterion_cluster = contrastive_loss.ClusterLoss(cluster_number, args.cluster_temperature, loss_device).to(loss_device)
         loss_instance = criterion_instance(z_i, z_j)+criterion_instance(z_j, z_i)
         loss_cluster = criterion_cluster(c_i, c_j)
         #################################### LIU  ****************************
-        inputs=dataloader.next()  # 这里的 loader 是有伪标签的
+        inputs=dataloader.next()  
         inputs, labels = parse_data(inputs)
         inputs = inputs.float()
-        f_out = model.forward_(inputs)
+        f_out = model.module.forward_(inputs)
         loss_new = m(f_out, labels)
         #################################### LIU  ****************************
         loss = loss_instance + loss_cluster
@@ -113,7 +114,7 @@ def draw_fig(list,name,epoch):
     x1 = range(0, epoch+1)
     print(x1)
     y1 = list
-    save_file = '/home/amax/4t/amax/CGLIU/second/MGCL/results/' + name + 'Train_loss.png'
+    save_file = '/home/amax/4t/amax/CGLIU/second' + name + 'Train_loss.png'
     plt.cla()
     plt.title('Train loss vs. epoch', fontsize=20)
     plt.plot(x1, y1, '.-')
@@ -129,12 +130,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     parser.add_argument("--cancer_type", '-c', type=str, default="BRCA")
-    parser.add_argument('--batch_size', type=int, default=64)
+    parser.add_argument('--batch_size', type=int, default=1)
     parser.add_argument('--cluster_number', type=int,default=5)
-    args = parser.parse_args()# 参数实例化
+    args = parser.parse_args()
     cancer_dict = {'BRCA': 5, 'BLCA': 5, 'KIRC': 4,'LUAD': 3, 'PAAD': 2, 'SKCM': 4,'STAD': 3, 'UCEC': 4, 'UVM': 4, 'GBM': 2}
     
-    cluster_number = cancer_dict[args.cancer_type]  # 按照癌症种类选择 
+    cluster_number = cancer_dict[args.cancer_type] 
     print(cluster_number)
 
     parser.add_argument('--temp', type=float, default=0.05,
@@ -158,25 +159,26 @@ if __name__ == "__main__":
 
     logger = SummaryWriter(log_dir="./log")
     
-    #load data  # dataloader确认，原始特征 (特征/样本数量 * (特征维度)) 
-    DL,org_fea = get_feature(args.cancer_type, args.batch_size, True)   #这里的loader 是没有标签的，注意后面参数是True 的这里是用来提取特征的
+    
+    DL,org_fea = get_feature(args.cancer_type, args.batch_size, True)  
 
     # initialize model
-    ae = ae.AE()
-    model = network.Network(ae, args.feature_dim, cluster_number) #模型就是network.py里的
-    model = model.to(device)
+    ae = ae.AE(input_dim=org_fea.size(1))
+    model = network.Network(ae, args.feature_dim, cluster_number) 
+    model = torch.nn.DataParallel(model, device_ids=[0,1,2,3])
+    model=model.to(device)
 
 
     ############################ MGCL  ##################################
-    features = extract_features(DL, model, device)  #模型提取的特征 (特征/样本数量 * 128(特征维度))
+    features = extract_features(DL, model, device)  
     features = torch.tensor(features)
-    sim = features.mm(features.t())  #根据特征求出相似度矩阵
-    cluster = KMeans(n_clusters=cluster_number, random_state=0)  #定义聚类方式
-    pseudo_labels = cluster.fit_predict(sim) #根据聚类方式打出伪标签
-    num_cluster = len(set(pseudo_labels)) - (1 if -1 in pseudo_labels else 0) #类个数
+    sim = features.mm(features.t())  
+    cluster = KMeans(n_clusters=cluster_number, random_state=0)  
+    pseudo_labels = cluster.fit_predict(sim) 
+    num_cluster = len(set(pseudo_labels)) - (1 if -1 in pseudo_labels else 0) 
 
     @torch.no_grad()
-    def generate_cluster_features(labels, features):  #输入为 伪标签 & 特征
+    def generate_cluster_features(labels, features): 
         centers = collections.defaultdict(list)
         for i, label in enumerate(labels):
            if label == -1:
@@ -185,9 +187,9 @@ if __name__ == "__main__":
 
         centers = [torch.stack(centers[idx], dim=0).mean(0) for idx in sorted(centers.keys())]
         centers = torch.stack(centers, dim=0)
-        return centers  #输出为 质心特征（同类特征取均值）
+        return centers  
 
-    cluster_features = generate_cluster_features(pseudo_labels, features)  #得到质心矩阵
+    cluster_features = generate_cluster_features(pseudo_labels, features)  
 
     memory = ClusterMemory(args.feature_dim, num_cluster, temp=args.temp,
                            momentum=args.momentum).cuda()
@@ -196,7 +198,7 @@ if __name__ == "__main__":
 
     pseudo_labeled_dataset = []
     for i, (feature, label) in enumerate(zip(org_fea, pseudo_labels)):
-        pseudo_labeled_dataset.append((feature, label))  # 所有的原始特征 + 所有的伪标签
+        pseudo_labeled_dataset.append((feature, label))  
 
 
     train_loader = IterLoader(DataLoader(pseudo_labeled_dataset, args.batch_size))
@@ -212,7 +214,7 @@ if __name__ == "__main__":
     loss=[]
     for epoch in range(args.start_epoch, args.epochs+1):
         lr = optimizer.param_groups[0]["lr"]
-        loss_epoch = train(train_loader,model,memory)
+        loss_epoch = train(train_loader,model,memory)  
         loss.append(loss_epoch)
         logger.add_scalar("train loss", loss_epoch)
         if epoch % 100 == 0:
@@ -221,7 +223,7 @@ if __name__ == "__main__":
     draw_fig(loss,args.cancer_type,epoch)
     
     #inference
-    dataloader,org_feature = get_feature(args.cancer_type,args.batch_size,False) #这里的 loader也没有标签，是用来测试提取特征，最后参数为False
+    dataloader,org_feature = get_feature(args.cancer_type,args.batch_size,False) 
     
     # load model
     model = network.Network(ae, args.feature_dim, cluster_number)
@@ -231,7 +233,7 @@ if __name__ == "__main__":
 
     print("### Creating features from model ###")
     X,h = inference(dataloader, model, device)
-    output = pd.DataFrame(columns=['sample_name', 'dcc'])  # 建立新的DataFrame
+    output = pd.DataFrame(columns=['sample_name', 'dcc'])  
     fea_tmp_file = '/home/amax/4t/amax/CGLIU/second/MGCL/subtype_file/fea/' + args.cancer_type + '/rna.fea'
     sample_name = list(pd.read_csv(fea_tmp_file).columns)[1:]
     output['sample_name'] = sample_name

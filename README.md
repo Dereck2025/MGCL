@@ -9,6 +9,19 @@ MGCL is built with Python 3.7 with the following packages:
 * scikit-learn == 1.0.2
 
 
+# Datasets
+Download datasets at https://pan.baidu.com/s/1yADMOcyowz9GpPhqAfbX0w?pwd=abcd.  The directory should look like
+Data
+├── BLCA
+├── BRCA
+├── KIRC
+├── LUAD
+├── PAAD
+├── SKCM
+├── STAD
+└── UCEC
+
+
 # Usage
 We provide the scripts for running MGCL.  
 
